@@ -28,6 +28,27 @@ app.get('/api/departments', async(req, res, next) => {
   }
 })
 
+app.get('/api/employees', async(req, res, next) => {
+  try{                          
+    res.send(await Employee.findAll({
+     include: [
+       {
+        model: Employee,
+        as: 'supervisor'
+       },
+       Employee,
+       Department
+       
+     ]
+    }))
+  }
+  catch (ex){
+    next(ex)
+  }
+})
+
+
+
 
 //define models
 const Department = conn.define('department', {
@@ -52,17 +73,20 @@ const Employee = conn.define('employee', {
 
 //associations
 
-Department.belongsTo(Employee, {as: 'manager'}); // were using aliasing here for the most correct term to use a department belongs to a manager belongs to by deafault tags an id after it so its managerid
+Department.belongsTo(Employee, { as: 'manager' }); // were using aliasing here for the most correct term to use a department belongs to a manager belongs to by deafault tags an id after it so its managerid
 Employee.hasMany(Department, { foreignKey: 'managerId' }); //need to put this foreign key otherwise it will create another primary key you will have managerid and employee id. all you want is managerid this is because you used the alias in the previous line
 
+Employee.belongsTo(Employee, {as: 'supervisor' })
+Employee.hasMany(Employee, {foreignKey: 'supervisorId' })
 
 const syncAndSeed = async() => {
   await conn.sync({ force: true }) //wipe out tables wont end up recreating tables without this line
   
   //Promise.all runs things in parallel
-  const [moe, lucy, hr, engineering] = await Promise.all([
+  const [moe, lucy, larry, hr, engineering] = await Promise.all([
     Employee.create({ name: 'moe'}),
-    Employee.create({name: 'lucy'}),
+    Employee.create({ name: 'lucy' }),
+    Employee.create({ name: 'larry' }),
     Department.create({ name: 'hr'}),
     Department.create({ name: 'engineering'})
   ])
@@ -73,6 +97,15 @@ const syncAndSeed = async() => {
   //console.log(hr.get())    // .get() method just gets the data
   //console.log(JSON.stringify(hr, null, 2)) //also prints the data and displays as json string 
 
+  
+  //now lets set up employees and supervisors association information
+  moe.supervisorId = lucy.id
+  //await moe.save()
+  larry.supervisorId = lucy.id
+  await Promise.all([
+    moe.save(), 
+    larry.save()
+  ]);
 }
 
 const init = async() => {
